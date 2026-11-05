@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="门口">
+<meta name="theme-color" content="#0b0d10">
+<title>门口</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0b0d10;color:#e8eaed;font:15px/1.5 -apple-system,"PingFang SC",sans-serif;
+padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 20px)}
+h1{font-size:17px;font-weight:600;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+.card{background:#16191d;border-radius:16px;overflow:hidden;margin-bottom:14px}
+video{width:100%;aspect-ratio:16/9;background:#000;display:block}
+.bar{display:flex;gap:8px;padding:10px 12px;align-items:center;font-size:13px;color:#9aa0a6}
+.bar b{font-weight:600;color:#e8eaed}
+.chip{font-size:12px;padding:4px 10px;border-radius:999px;background:#22272e;color:#9aa0a6;border:none}
+.chip.on{background:#2563eb;color:#fff}
+.rec{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid #23272d;font-size:14px;align-items:center}
+.rec:last-child{border-bottom:none}
+.rec:active{background:#1d2127}
+.rec .t{color:#8ab4f8;font-variant-numeric:tabular-nums;font-size:13px;min-width:92px}
+.rec .n{flex:1;color:#e8eaed;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec .go{color:#5f6672;font-size:12px}
+.tag{font-size:11px;padding:1px 6px;border-radius:5px;background:#1f3a2a;color:#4ade80;margin-left:6px}
+button{font:inherit;border:none;border-radius:12px;padding:12px;width:100%;background:#1f242a;color:#e8eaed;margin-top:10px}
+button.pri{background:#2563eb;color:#fff;font-weight:600}
+button:active{opacity:.7}
+input{width:100%;font:inherit;background:#0b0d10;border:1px solid #23272d;color:#e8eaed;
+border-radius:10px;padding:11px 12px;margin:6px 0 2px}
+label{font-size:13px;color:#9aa0a6}
+#msg,#dbg{font-size:12.5px;color:#fbbf24;margin:8px 0;white-space:pre-wrap;word-break:break-all;
+font-family:ui-monospace,Menlo,monospace}
+#dbg{color:#7c8794;max-height:220px;overflow:auto}
+.empty{color:#5f6672;font-size:14px;padding:22px 16px;text-align:center}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<h1>门口<span id="st" style="font-size:12px;color:#5f6672;font-weight:400">未连接</span></h1>
+
+<div id="viewMain">
+  <div class="card">
+    <video id="v" playsinline muted controls></video>
+    <img id="img" style="display:none;width:100%;border-radius:12px" />
+
+    <div class="bar"><b id="mode">实时</b><span id="now"></span></div>
+  </div>
+  <div class="card" id="recCard"></div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button class="chip on" id="fAll" onclick="setFilter('all')">全部</button>
+    <button class="chip" id="fHuman" onclick="setFilter('human')">仅人形</button>
+    <button class="chip" id="fOpen" onclick="setFilter('open')">仅开关门</button>
+  </div>
+  <button class="pri" onclick="refreshLive()">看实时</button>
+  <button onclick="loadRec()">刷新记录</button>
+  <button onclick="toggleSetup()">设置 / 诊断</button>
+</div>
+
+<div id="viewSetup" class="hide">
+  <div class="card" style="padding:14px 16px">
+    <label>AppKey</label><input id="k" autocomplete="off" autocapitalize="off">
+    <label>AppSecret</label><input id="s" autocomplete="off" autocapitalize="off" type="password">
+    <label>摄像头序列号</label><input id="cam" autocapitalize="off">
+    <label>门锁序列号（留空=全部告警）</label><input id="lock" autocapitalize="off">
+    <label>摄像头通道</label><input id="ch" value="1" inputmode="numeric">
+    <button class="pri" onclick="save()">保存并测试</button>
+    <button onclick="diagnose()">运行诊断（看回放接口）</button>
+    <button onclick="toggleSetup()">返回</button>
+  </div>
+  <div id="msg"></div>
+  <div id="dbg"></div>
+</div>
+<script>
+const API = 'https://open.ys7.com/api/lapp/';
+let tok = null, tokExp = 0, timer = null, filter = 'all', alarms = [];
+const $ = id => document.getElementById(id);
+const cfg = () => JSON.parse(localStorage.getItem('ezcfg') || '{}');
+const log = t => { $('dbg').textContent = t + '\n' + $('dbg').textContent; };
+const status = t => { $('st').textContent = t; };
+
+function enc(o) {
+  return Object.keys(o).filter(k => o[k] !== '' && o[k] != null)
+    .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(o[k])).join('&');
+}
+async function post(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: enc(body)
+  });
+  const txt = await r.text();
+  let j; try { j = JSON.parse(txt); } catch (e) { throw new Error(path + ' 非JSON: ' + txt.slice(0, 80)); }
+  if (j.code !== '200') throw new Error(`${path} → ${j.code} ${j.msg || ''}`);
+  return j.data;
+}
+async function getToken(force) {
+  const c = cfg();
+  if (!c.appKey || !c.appSecret) throw new Error('先在设置里填 AppKey / AppSecret');
+  if (!tok) { tok = localStorage.getItem('tk_' + c.appKey); tokExp = +localStorage.getItem('tke_' + c.appKey) || 0; }
+  if (!force && tok && Date.now() < tokExp) return tok;
+  const d = await post('token/get', { appKey: c.appKey, appSecret: c.appSecret });
+  tok = d.accessToken;
+  tokExp = (d.expireTime || Date.now() + 6e6) - 120000;
+  localStorage.setItem('tk_' + c.appKey, tok);
+  localStorage.setItem('tke_' + c.appKey, String(tokExp));
+  status('已连接');
+  return tok;
+}
+
+/* ---------- 实时 ---------- */
+async function refreshLive() {
+  $('mode').textContent = '实时'; $('now').textContent = '';
+  try {
+    const c = cfg(); const t = await getToken();
+    const d = await post('live/address/get', {
+      accessToken: t, source: c.cam + ':' + (c.ch || 1),
+      protocol: 'hls', quality: 1, expireTime: 82800, supportH265: 0
+    });
+    $('v').src = d.url; $('v').play().catch(() => {});
+  } catch (e) {
+    $('mode').textContent = '抓拍';
+    const why = /own the device|20018/i.test(e.message) ? '共享设备' : e.message.slice(0, 30);
+    $('now').textContent = why;
+    return showLatestPic();
+  }
+}
+
+async function showLatestPic() {
+  try {
+    const t = await getToken();
+    const r = await post('alarm/list', { accessToken: t, pageStart: 0, pageSize: 1, deviceSerial: cfg().lock || cfg().cam });
+    const a = (r.list || [])[0];
+    if (!a) return;
+    const p = await post('alarm/picture', { accessToken: t, alarmId: a.alarmId });
+    const u = p.picUrl || p.url || (p.data && p.data.picUrl) || a.alarmPicUrl;
+    if (u) { $('img').src = u; $('img').style.display = 'block'; $('v').style.display = 'none'; }
+    $('now').textContent = '抓拍 ' + fmt(a.alarmTime);
+  } catch (e2) { $('now').textContent = '⚠️ 抓拍也失败：' + e2.message; }
+}
+
+/* ---------- 回放 ---------- */
+function ts(ms) { return Math.floor(ms / 1000); }
+function fmt(ms) {
+  const d = new Date(+ms), p = n => String(n).padStart(2, '0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+async function playAt(ms, alarmId) {
+  const c = cfg(); const t = await getToken();
+  $('mode').textContent = '回放'; $('now').textContent = fmt(ms);
+  const t1 = ms - 60000, t2 = ms + 120000;
+  // 1) 云存储录像
+  for (const unit of ['sec', 'ms']) {
+    const f = unit === 'sec' ? ts : v => v;
+    try {
+      const list = await post('cloud/video/list', {
+        accessToken: t, deviceSerial: c.cam, channelNo: c.ch || 1,
+        startTime: String(f(t1)), endTime: String(f(t2)),
+        pageStart: 0, pageSize: 10
+      });
+      const arr = (list && (list.videoList || list.list)) || [];
+      if (!arr.length) { log('cloud/list ' + unit + ': 该时段无录像'); continue; }
+      const v0 = arr[0];
+      const a = await post('cloud/video/address/get', {
+        accessToken: t, deviceSerial: c.cam, channelNo: c.ch || 1,
+        startTime: String(v0.startTime), endTime: String(v0.endTime),
+        protocol: 'hls', quality: 1
+      });
+      $('v').src = a.url; $('v').play().catch(() => {});
+      $('now').textContent = fmt(ms) + ' · 云录像';
+      return;
+    } catch (e) { log(String(e.message)); }
+  }
+  // 2) 兜底：报警抓拍图
+  if (alarmId) {
+    try {
+      const p = await post('alarm/picture', { accessToken: t, alarmId });
+      const u = (p && (p.picUrl || p.url)) || (Array.isArray(p) && p[0] && p[0].picUrl);
+      if (u) {
+        $('v').poster = u; $('v').removeAttribute('src'); $('v').load();
+        $('now').textContent = fmt(ms) + ' · 抓拍图（无云录像）';
+        return;
+      }
+    } catch (e) { log(String(e.message)); }
+  }
+  $('now').textContent = fmt(ms) + ' · 该时段无可播录像';
+}
+/* ---------- 记录 ---------- */
+const isHuman = a => /人|human|pir|body/i.test((a.alarmName || '') + (a.alarmType || ''));
+const isOpen = a => /门|lock|门锁|open/i.test((a.alarmName || '') + (a.alarmType || ''));
+
+function setFilter(f) {
+  filter = f;
+  ['fAll','fHuman','fOpen'].forEach(id => $(id).classList.remove('on'));
+  $(f === 'all' ? 'fAll' : f === 'human' ? 'fHuman' : 'fOpen').classList.add('on');
+  render();
+}
+
+function render() {
+  const card = $('recCard');
+  let list = alarms;
+  if (filter === 'human') list = alarms.filter(isHuman);
+  if (filter === 'open') list = alarms.filter(isOpen);
+  if (!list.length) { card.innerHTML = '<div class="empty">暂无记录</div>'; return; }
+  card.innerHTML = list.map(a => {
+    const t = +a.alarmTime, name = a.alarmName || ('告警 ' + (a.alarmType || ''));
+    const tag = isHuman(a) ? '<span class="tag">人形</span>' : '';
+    return `<div class="rec" onclick="playAt(${t},'${a.alarmId || ''}')">
+      <span class="t">${fmt(t)}</span>
+      <span class="n">${name}${tag}</span>
+      <span class="go">回放 ›</span></div>`;
+  }).join('');
+}
+
+async function loadRec() {
+  const card = $('recCard');
+  try {
+    card.innerHTML = '<div class="empty">加载中…</div>';
+    const c = cfg(); const t = await getToken();
+    const body = { accessToken: t, pageStart: 0, pageSize: 40 };
+    if (c.lock) body.deviceSerial = c.lock;
+    const d = await post('alarm/list', body);
+    alarms = (d && (d.alarmList || d.list)) || (Array.isArray(d) ? d : []);
+    render();
+  } catch (e) { card.innerHTML = '<div class="empty">⚠️ ' + e.message + '</div>'; }
+}
+
+/* ---------- 设置 / 诊断 ---------- */
+function toggleSetup() {
+  $('viewMain').classList.toggle('hide');
+  $('viewSetup').classList.toggle('hide');
+  if (!$('viewSetup').classList.contains('hide')) {
+    const c = cfg();
+    $('k').value = c.appKey || ''; $('s').value = c.appSecret || '';
+    $('cam').value = c.cam || ''; $('lock').value = c.lock || ''; $('ch').value = c.ch || 1;
+  }
+}
+
+async function save() {
+  const c = {
+    appKey: $('k').value.trim(), appSecret: $('s').value.trim(),
+    cam: $('cam').value.trim(), lock: $('lock').value.trim(), ch: $('ch').value.trim() || 1
+  };
+  localStorage.setItem('ezcfg', JSON.stringify(c));
+  tok = null; tokExp = 0;
+  $('msg').textContent = '测试中…'; $('msg').style.color = '#fbbf24';
+  try {
+    await getToken(true);
+    $('msg').textContent = '✅ 连接成功';
+    $('msg').style.color = '#4ade80';
+    toggleSetup(); refreshLive(); loadRec();
+    if (!timer) timer = setInterval(loadRec, 60000);
+  } catch (e) {
+    $('msg').textContent = '❌ ' + e.message;
+    $('msg').style.color = '#f87171';
+  }
+}
+
+/* 诊断：逐个试回放相关接口，把原始返回打出来 */
+async function diagnose() {
+  $('dbg').textContent = '';
+  const c = cfg();
+  try {
+    const t = await getToken(true);
+    log('token OK');
+    const now = Date.now();
+    const probes = [
+      ['cloud/video/list', { accessToken: t, deviceSerial: c.cam, channelNo: c.ch || 1,
+        startTime: String(ts(now - 86400000)), endTime: String(ts(now)), pageStart: 0, pageSize: 5 }],
+      ['alarm/list', { accessToken: t, pageStart: 0, pageSize: 3 }],
+      ['device/backVideo/list', { accessToken: t, deviceSerial: c.cam, channelNo: c.ch || 1,
+        startTime: String(ts(now - 86400000)), endTime: String(ts(now)), pageStart: 0, pageSize: 5 }],
+    ];
+    for (const [p, b] of probes) {
+      try { const d = await post(p, b); log(p + ' ✅ ' + JSON.stringify(d).slice(0, 160)); }
+      catch (e) { log(p + ' ❌ ' + e.message); }
+    }
+  } catch (e) { log('❌ ' + e.message); }
+}
+
+(function init() {
+  const c = cfg();
+  if (c.appKey && c.cam) { refreshLive(); loadRec(); timer = setInterval(loadRec, 60000); }
+  else { $('recCard').innerHTML = '<div class="empty">首次使用：点「设置」填 AppKey</div>'; }
+})();
+</script>
+</body>
+</html>
