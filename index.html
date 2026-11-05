@@ -4,83 +4,200 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="门口">
-<meta name="theme-color" content="#0b0d10">
+<meta name="theme-color" content="#05060a">
 <title>门口</title>
 <style>
+:root{
+  --ink:#f2f4f7; --dim:#9ba3ae; --faint:#6b7280;
+  --glass:rgba(255,255,255,.055);
+  --glass-hi:rgba(255,255,255,.085);
+  --stroke:rgba(255,255,255,.11);
+  --blue:#0a84ff; --green:#30d158;
+  --r:28px;
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:#0b0d10;color:#e8eaed;font:15px/1.5 -apple-system,"PingFang SC",sans-serif;
-padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 20px)}
-h1{font-size:17px;font-weight:600;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
-.card{background:#16191d;border-radius:16px;overflow:hidden;margin-bottom:14px}
-video{width:100%;aspect-ratio:16/9;background:#000;display:block}
-.bar{display:flex;gap:8px;padding:10px 12px;align-items:center;font-size:13px;color:#9aa0a6}
-.bar b{font-weight:600;color:#e8eaed}
-.chip{font-size:12px;padding:4px 10px;border-radius:999px;background:#22272e;color:#9aa0a6;border:none}
-.chip.on{background:#2563eb;color:#fff}
-.rec{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid #23272d;font-size:14px;align-items:center}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;min-height:100vh;color:var(--ink);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+  letter-spacing:-.01em;
+  background:#05060a;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 28px);
+  overflow-x:hidden;
+}
+/* 背景光晕 */
+body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(70px);opacity:.55;z-index:-1;pointer-events:none}
+body::before{width:420px;height:420px;left:-140px;top:-120px;background:radial-gradient(circle,#1d4ed8,transparent 68%);animation:drift 22s ease-in-out infinite alternate}
+body::after{width:380px;height:380px;right:-150px;top:38%;background:radial-gradient(circle,#0f766e,transparent 70%);animation:drift 28s ease-in-out infinite alternate-reverse}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(40px,60px,0) scale(1.15)}}
+
+/* 顶部 */
+header{display:flex;align-items:flex-end;justify-content:space-between;margin:6px 4px 18px}
+h1{font-size:34px;line-height:1.05;font-weight:700;letter-spacing:-.03em;margin:0}
+#st{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--dim);
+  padding:6px 12px;border-radius:999px;background:var(--glass);border:.5px solid var(--stroke);
+  backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%)}
+#st::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--faint);transition:.3s}
+#st.ok::before{background:var(--green);box-shadow:0 0 8px var(--green)}
+#st.bad::before{background:#ff453a}
+
+/* 玻璃容器 */
+.glass{
+  background:var(--glass);
+  border:.5px solid var(--stroke);
+  border-radius:var(--r);
+  backdrop-filter:blur(30px) saturate(180%);
+  -webkit-backdrop-filter:blur(30px) saturate(180%);
+  box-shadow:0 1px 0 rgba(255,255,255,.10) inset, 0 18px 40px -22px rgba(0,0,0,.9);
+  overflow:hidden;
+}
+
+/* 画面卡 */
+.stage{margin-bottom:18px;position:relative;overflow:hidden}
+video{width:100%;aspect-ratio:3/4;background:#000;display:none;object-fit:cover}
+#img{display:none;width:100%;max-height:52vh;object-fit:cover}
+.ph{aspect-ratio:4/5;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;color:var(--ink3);font-size:14px;letter-spacing:.02em}
+.ph .ico{width:64px;height:64px;border-radius:22px;display:grid;place-items:center;
+  background:linear-gradient(160deg,rgba(255,255,255,.16),rgba(255,255,255,.04));
+  border:.5px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+.ph.hide{display:none}
+.stage .cap{
+  display:flex;align-items:center;gap:10px;padding:13px 16px;font-size:13.5px;color:var(--dim);
+  border-top:.5px solid rgba(255,255,255,.07)
+}
+.stage .cap b{font-weight:600;color:var(--ink);font-size:13px;letter-spacing:.02em;
+  padding:3px 9px;border-radius:9px;background:rgba(255,255,255,.09)}
+#now{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 分段控件 */
+.seg{display:flex;gap:4px;padding:4px;margin:0 0 16px;border-radius:999px;
+  background:rgba(255,255,255,.05);border:.5px solid var(--stroke);
+  backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%)}
+.seg button{flex:1;border:none;background:none;color:var(--dim);font:inherit;font-size:13.5px;font-weight:500;
+  padding:9px 4px;border-radius:999px;transition:transform .18s cubic-bezier(.2,.8,.2,1),background .22s,color .22s}
+.seg button.on{background:rgba(255,255,255,.14);color:var(--ink);font-weight:600;
+  box-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 6px 16px -8px rgba(0,0,0,.8)}
+.seg button:active{transform:scale(.96)}
+
+/* 记录卡 */
+#recCard{border-radius:var(--r);overflow:hidden;margin-bottom:16px}
+.rec{display:flex;align-items:center;gap:12px;padding:15px 18px;position:relative;
+  border-bottom:.5px solid rgba(255,255,255,.07);transition:background .18s,transform .18s}
 .rec:last-child{border-bottom:none}
-.rec:active{background:#1d2127}
-.rec .t{color:#8ab4f8;font-variant-numeric:tabular-nums;font-size:13px;min-width:92px}
-.rec .n{flex:1;color:#e8eaed;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rec .go{color:#5f6672;font-size:12px}
-.tag{font-size:11px;padding:1px 6px;border-radius:5px;background:#1f3a2a;color:#4ade80;margin-left:6px}
-button{font:inherit;border:none;border-radius:12px;padding:12px;width:100%;background:#1f242a;color:#e8eaed;margin-top:10px}
-button.pri{background:#2563eb;color:#fff;font-weight:600}
-button:active{opacity:.7}
-input{width:100%;font:inherit;background:#0b0d10;border:1px solid #23272d;color:#e8eaed;
-border-radius:10px;padding:11px 12px;margin:6px 0 2px}
-label{font-size:13px;color:#9aa0a6}
-#msg,#dbg{font-size:12.5px;color:#fbbf24;margin:8px 0;white-space:pre-wrap;word-break:break-all;
-font-family:ui-monospace,Menlo,monospace}
-#dbg{color:#7c8794;max-height:220px;overflow:auto}
-.empty{color:#5f6672;font-size:14px;padding:22px 16px;text-align:center}
+.rec:active{background:rgba(255,255,255,.07);transform:scale(.985)}
+.rec .t{font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:82px;letter-spacing:.01em}
+.rec .n{flex:1;font-size:15.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec .go{font-size:12.5px;color:var(--blue);font-weight:500;opacity:.9}
+.tag{font-size:11px;padding:2px 7px;border-radius:7px;background:rgba(48,209,88,.16);color:#4ade80;
+  margin-left:7px;font-weight:600;letter-spacing:.02em}
+.empty{color:var(--faint);font-size:14.5px;padding:34px 20px;text-align:center}
+
+/* 按钮 */
+.btns{display:grid;gap:10px;margin-top:4px}
+button.act{font:inherit;font-size:16px;font-weight:600;letter-spacing:-.01em;
+  border:none;border-radius:20px;padding:16px;width:100%;color:var(--ink);
+  background:var(--glass-hi);border:.5px solid var(--stroke);
+  backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:0 1px 0 rgba(255,255,255,.12) inset;
+  transition:transform .16s cubic-bezier(.2,.8,.2,1),opacity .16s}
+button.act:active{transform:scale(.972);opacity:.85}
+button.pri{background:linear-gradient(180deg,#3b9dff,#0a6cff);border-color:rgba(255,255,255,.22);
+  box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 12px 30px -12px rgba(10,132,255,.9)}
+button.ghost{background:transparent;box-shadow:none}
+
+/* 设置页 */
+.field{display:block;margin:0 0 16px}
+.field label{display:block;font-size:12.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 7px 4px}
+.field input{width:100%;font:inherit;font-size:16px;color:var(--ink);padding:14px 16px;
+  border-radius:18px;background:rgba(255,255,255,.06);border:.5px solid var(--stroke);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);outline:none;transition:.2s}
+.field input:focus{background:rgba(255,255,255,.1);border-color:rgba(10,132,255,.6);
+  box-shadow:0 0 0 3.5px rgba(10,132,255,.18)}
+.pad{padding:22px 20px}
+.sec-title{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:26px 4px 12px}
+#msg,#dbg{font-size:12.5px;margin:14px 4px;white-space:pre-wrap;word-break:break-all;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}
+#msg{color:#ffd60a}
+#dbg{color:#78818f;max-height:240px;overflow:auto;padding:14px;border-radius:18px;
+  background:rgba(0,0,0,.32);border:.5px solid rgba(255,255,255,.06)}
 .hide{display:none!important}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<h1>门口<span id="st" style="font-size:12px;color:#5f6672;font-weight:400">未连接</span></h1>
+
+<header>
+  <h1>门口</h1>
+  <span id="st">未连接</span>
+</header>
 
 <div id="viewMain">
-  <div class="card">
+  <div class="glass stage">
     <video id="v" playsinline muted controls></video>
-    <img id="img" style="display:none;width:100%;border-radius:12px" />
+    <img id="img" alt="">
+    <div class="ph" id="ph">
+      <div class="ico">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8e8e93">
+          <path d="M3 8.5V6a2 2 0 0 1 2-2h2.5M21 8.5V6a2 2 0 0 0-2-2h-2.5M3 15.5V18a2 2 0 0 0 2 2h2.5M21 15.5V18a2 2 0 0 1-2 2h-2.5"/>
+          <circle cx="12" cy="12" r="2.6"/>
+        </svg>
+      </div>
+      <div>点下方按钮加载画面</div>
+    </div>
+    <div class="cap"><b id="mode">实时</b><span id="now"></span></div>
+  </div>
 
-    <div class="bar"><b id="mode">实时</b><span id="now"></span></div>
+  <div class="seg">
+    <button class="on" id="fAll" onclick="setFilter('all')">全部</button>
+    <button id="fHuman" onclick="setFilter('human')">人形</button>
+    <button id="fOpen" onclick="setFilter('open')">开关门</button>
   </div>
-  <div class="card" id="recCard"></div>
-  <div style="display:flex;gap:8px;margin-bottom:10px">
-    <button class="chip on" id="fAll" onclick="setFilter('all')">全部</button>
-    <button class="chip" id="fHuman" onclick="setFilter('human')">仅人形</button>
-    <button class="chip" id="fOpen" onclick="setFilter('open')">仅开关门</button>
+
+  <div class="glass" id="recCard"></div>
+
+  <div class="btns">
+    <button class="act pri" onclick="refreshLive()">看实时画面</button>
+    <button class="act" onclick="loadRec()">刷新记录</button>
+    <button class="act ghost" onclick="toggleSetup()">设置与诊断</button>
   </div>
-  <button class="pri" onclick="refreshLive()">看实时</button>
-  <button onclick="loadRec()">刷新记录</button>
-  <button onclick="toggleSetup()">设置 / 诊断</button>
 </div>
 
 <div id="viewSetup" class="hide">
-  <div class="card" style="padding:14px 16px">
-    <label>AppKey</label><input id="k" autocomplete="off" autocapitalize="off">
-    <label>AppSecret</label><input id="s" autocomplete="off" autocapitalize="off" type="password">
-    <label>摄像头序列号</label><input id="cam" autocapitalize="off">
-    <label>门锁序列号（留空=全部告警）</label><input id="lock" autocapitalize="off">
-    <label>摄像头通道</label><input id="ch" value="1" inputmode="numeric">
-    <button class="pri" onclick="save()">保存并测试</button>
-    <button onclick="diagnose()">运行诊断（看回放接口）</button>
-    <button onclick="toggleSetup()">返回</button>
+  <div class="sec-title">连接设置</div>
+  <div class="glass pad">
+    <div class="field"><label>AppKey</label><input id="k" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="field"><label>AppSecret</label><input id="s" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="field"><label>门锁序列号</label><input id="lock" autocapitalize="off" placeholder="留空 = 全部告警"></div>
+    <div class="field"><label>摄像头序列号</label><input id="cam" autocapitalize="off" placeholder="共享设备可留空"></div>
+    <div class="field" style="margin-bottom:6px"><label>摄像头通道</label><input id="ch" value="1" inputmode="numeric"></div>
+  </div>
+  <div class="btns" style="margin-top:16px">
+    <button class="act pri" onclick="save()">保存并测试</button>
+    <button class="act" onclick="diagnose()">运行诊断</button>
+    <button class="act ghost" onclick="toggleSetup()">返回</button>
   </div>
   <div id="msg"></div>
   <div id="dbg"></div>
 </div>
+
 <script>
 const API = 'https://open.ys7.com/api/lapp/';
 let tok = null, tokExp = 0, timer = null, filter = 'all', alarms = [];
 const $ = id => document.getElementById(id);
 const cfg = () => JSON.parse(localStorage.getItem('ezcfg') || '{}');
 const log = t => { $('dbg').textContent = t + '\n' + $('dbg').textContent; };
-const status = t => { $('st').textContent = t; };
+function status(t, ok) {
+  const el = $('st');
+  el.textContent = t;
+  el.classList.remove('ok', 'bad');
+  if (ok === true) el.classList.add('ok');
+  if (ok === false) el.classList.add('bad');
+}
 
 function enc(o) {
   return Object.keys(o).filter(k => o[k] !== '' && o[k] != null)
@@ -101,45 +218,57 @@ async function getToken(force) {
   const c = cfg();
   if (!c.appKey || !c.appSecret) throw new Error('先在设置里填 AppKey / AppSecret');
   if (!tok) { tok = localStorage.getItem('tk_' + c.appKey); tokExp = +localStorage.getItem('tke_' + c.appKey) || 0; }
-  if (!force && tok && Date.now() < tokExp) return tok;
+  if (!force && tok && Date.now() < tokExp) { status('已连接', true); return tok; }
   const d = await post('token/get', { appKey: c.appKey, appSecret: c.appSecret });
   tok = d.accessToken;
   tokExp = (d.expireTime || Date.now() + 6e6) - 120000;
   localStorage.setItem('tk_' + c.appKey, tok);
   localStorage.setItem('tke_' + c.appKey, String(tokExp));
-  status('已连接');
+  status('已连接', true);
   return tok;
 }
 
 /* ---------- 实时 ---------- */
 async function refreshLive() {
   $('mode').textContent = '实时'; $('now').textContent = '';
+  const c = cfg();
+  if (!c.cam) { $('mode').textContent = '抓拍'; return showLatestPic('门锁抓拍'); }
   try {
-    const c = cfg(); const t = await getToken();
+    const t = await getToken();
     const d = await post('live/address/get', {
       accessToken: t, source: c.cam + ':' + (c.ch || 1),
       protocol: 'hls', quality: 1, expireTime: 82800, supportH265: 0
     });
-    $('v').src = d.url; $('v').play().catch(() => {});
+    showVideo(d.url);
   } catch (e) {
     $('mode').textContent = '抓拍';
-    const why = /own the device|20018/i.test(e.message) ? '共享设备' : e.message.slice(0, 30);
-    $('now').textContent = why;
-    return showLatestPic();
+    const m = e.message || '';
+    let why = '共享设备不支持实时';
+    if (/20018|own the device/i.test(m)) why = '共享设备不支持实时';
+    else if (/10001/.test(m)) why = '设备不支持';
+    else why = '取流失败';
+    log('live: ' + m);
+    return showLatestPic(why);
   }
 }
 
-async function showLatestPic() {
+async function showLatestPic(why) {
   try {
     const t = await getToken();
-    const r = await post('alarm/list', { accessToken: t, pageStart: 0, pageSize: 1, deviceSerial: cfg().lock || cfg().cam });
-    const a = (r.list || [])[0];
-    if (!a) return;
-    const p = await post('alarm/picture', { accessToken: t, alarmId: a.alarmId });
-    const u = p.picUrl || p.url || (p.data && p.data.picUrl) || a.alarmPicUrl;
-    if (u) { $('img').src = u; $('img').style.display = 'block'; $('v').style.display = 'none'; }
-    $('now').textContent = '抓拍 ' + fmt(a.alarmTime);
-  } catch (e2) { $('now').textContent = '⚠️ 抓拍也失败：' + e2.message; }
+    const r = await post('alarm/list', { accessToken: t, pageStart: 0, pageSize: 6, deviceSerial: cfg().lock || cfg().cam });
+    const arr = Array.isArray(r) ? r : ((r && (r.alarmList || r.list)) || []);
+    const a = arr.find(x => x.alarmPicUrl) || arr[0];
+    if (!a) { $('now').textContent = '暂无抓拍'; return; }
+    let u = a.alarmPicUrl || '';
+    if (!u) {
+      try {
+        const p = await post('alarm/picture', { accessToken: t, alarmId: a.alarmId });
+        u = p.picUrl || p.url || (p.data && p.data.picUrl) || '';
+      } catch (e3) { log('alarm/picture: ' + e3.message); }
+    }
+    if (u) showImg(u, (why && why !== '门锁抓拍' ? why + ' · ' : '') + '最近 ' + fmt(a.alarmTime));
+    else $('now').textContent = why || '抓拍图获取失败';
+  } catch (e2) { $('now').textContent = '⚠️ ' + e2.message; status('未连接', false); }
 }
 
 /* ---------- 回放 ---------- */
@@ -149,11 +278,33 @@ function fmt(ms) {
   return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-async function playAt(ms, alarmId) {
-  const c = cfg(); const t = await getToken();
-  $('mode').textContent = '回放'; $('now').textContent = fmt(ms);
+function showImg(url, note) {
+  const v = $('v'), img = $('img');
+  if (v.pause) v.pause();
+  v.style.display = 'none'; v.removeAttribute('src'); if (v.load) v.load();
+  $('ph').classList.add('hide');
+  img.style.display = 'block'; img.src = url;
+  $('now').textContent = note || '';
+}
+
+function showVideo(url) {
+  const v = $('v'), img = $('img');
+  $('ph').classList.add('hide');
+  img.style.display = 'none';
+  v.style.display = 'block';
+  v.src = url; v.play().catch(() => {});
+}
+
+async function playAt(ms, alarmId, picUrl) {
+  const c = cfg();
+  $('mode').textContent = '回放';
+  if (picUrl) showImg(picUrl, fmt(ms) + ' · 抓拍');
+  if (!c.cam) { if (!picUrl) $('now').textContent = fmt(ms) + ' · 未配置摄像头'; return; }
+
   const t1 = ms - 60000, t2 = ms + 120000;
-  // 1) 云存储录像
+  let t;
+  try { t = await getToken(); } catch (e) { return; }
+
   for (const unit of ['sec', 'ms']) {
     const f = unit === 'sec' ? ts : v => v;
     try {
@@ -163,32 +314,21 @@ async function playAt(ms, alarmId) {
         pageStart: 0, pageSize: 10
       });
       const arr = (list && (list.videoList || list.list)) || [];
-      if (!arr.length) { log('cloud/list ' + unit + ': 该时段无录像'); continue; }
+      if (!arr.length) continue;
       const v0 = arr[0];
       const a = await post('cloud/video/address/get', {
         accessToken: t, deviceSerial: c.cam, channelNo: c.ch || 1,
         startTime: String(v0.startTime), endTime: String(v0.endTime),
         protocol: 'hls', quality: 1
       });
-      $('v').src = a.url; $('v').play().catch(() => {});
+      showVideo(a.url);
       $('now').textContent = fmt(ms) + ' · 云录像';
       return;
-    } catch (e) { log(String(e.message)); }
+    } catch (e) { log('cloud ' + unit + ': ' + e.message); }
   }
-  // 2) 兜底：报警抓拍图
-  if (alarmId) {
-    try {
-      const p = await post('alarm/picture', { accessToken: t, alarmId });
-      const u = (p && (p.picUrl || p.url)) || (Array.isArray(p) && p[0] && p[0].picUrl);
-      if (u) {
-        $('v').poster = u; $('v').removeAttribute('src'); $('v').load();
-        $('now').textContent = fmt(ms) + ' · 抓拍图（无云录像）';
-        return;
-      }
-    } catch (e) { log(String(e.message)); }
-  }
-  $('now').textContent = fmt(ms) + ' · 该时段无可播录像';
+  if (!picUrl) $('now').textContent = fmt(ms) + ' · 该时段无录像';
 }
+
 /* ---------- 记录 ---------- */
 const isHuman = a => /人|human|pir|body/i.test((a.alarmName || '') + (a.alarmType || ''));
 const isOpen = a => /门|lock|门锁|open/i.test((a.alarmName || '') + (a.alarmType || ''));
@@ -209,24 +349,27 @@ function render() {
   card.innerHTML = list.map(a => {
     const t = +a.alarmTime, name = a.alarmName || ('告警 ' + (a.alarmType || ''));
     const tag = isHuman(a) ? '<span class="tag">人形</span>' : '';
-    return `<div class="rec" onclick="playAt(${t},'${a.alarmId || ''}')">
+    return `<div class="rec" onclick="playAt(${t},'${a.alarmId || ''}','${(a.alarmPicUrl || '').replace(/'/g, "%27")}')">
       <span class="t">${fmt(t)}</span>
       <span class="n">${name}${tag}</span>
-      <span class="go">回放 ›</span></div>`;
+      <span class="go">看抓拍 ›</span></div>`;
   }).join('');
 }
 
 async function loadRec() {
   const card = $('recCard');
   try {
-    card.innerHTML = '<div class="empty">加载中…</div>';
+    if (!alarms.length) card.innerHTML = '<div class="empty">加载中…</div>';
     const c = cfg(); const t = await getToken();
     const body = { accessToken: t, pageStart: 0, pageSize: 40 };
     if (c.lock) body.deviceSerial = c.lock;
     const d = await post('alarm/list', body);
     alarms = (d && (d.alarmList || d.list)) || (Array.isArray(d) ? d : []);
     render();
-  } catch (e) { card.innerHTML = '<div class="empty">⚠️ ' + e.message + '</div>'; }
+  } catch (e) {
+    card.innerHTML = '<div class="empty">⚠️ ' + e.message + '</div>';
+    status('未连接', false);
+  }
 }
 
 /* ---------- 设置 / 诊断 ---------- */
@@ -237,6 +380,7 @@ function toggleSetup() {
     const c = cfg();
     $('k').value = c.appKey || ''; $('s').value = c.appSecret || '';
     $('cam').value = c.cam || ''; $('lock').value = c.lock || ''; $('ch').value = c.ch || 1;
+    $('msg').textContent = ''; $('dbg').textContent = '';
   }
 }
 
@@ -247,20 +391,22 @@ async function save() {
   };
   localStorage.setItem('ezcfg', JSON.stringify(c));
   tok = null; tokExp = 0;
-  $('msg').textContent = '测试中…'; $('msg').style.color = '#fbbf24';
+  $('msg').textContent = '测试中…'; $('msg').style.color = '#ffd60a';
   try {
     await getToken(true);
     $('msg').textContent = '✅ 连接成功';
-    $('msg').style.color = '#4ade80';
-    toggleSetup(); refreshLive(); loadRec();
-    if (!timer) timer = setInterval(loadRec, 60000);
+    $('msg').style.color = '#30d158';
+    setTimeout(() => {
+      toggleSetup(); refreshLive(); loadRec();
+      if (!timer) timer = setInterval(loadRec, 60000);
+    }, 700);
   } catch (e) {
     $('msg').textContent = '❌ ' + e.message;
-    $('msg').style.color = '#f87171';
+    $('msg').style.color = '#ff453a';
+    status('未连接', false);
   }
 }
 
-/* 诊断：逐个试回放相关接口，把原始返回打出来 */
 async function diagnose() {
   $('dbg').textContent = '';
   const c = cfg();
@@ -269,11 +415,11 @@ async function diagnose() {
     log('token OK');
     const now = Date.now();
     const probes = [
+      ['alarm/list', { accessToken: t, pageStart: 0, pageSize: 3 }],
       ['cloud/video/list', { accessToken: t, deviceSerial: c.cam, channelNo: c.ch || 1,
         startTime: String(ts(now - 86400000)), endTime: String(ts(now)), pageStart: 0, pageSize: 5 }],
-      ['alarm/list', { accessToken: t, pageStart: 0, pageSize: 3 }],
-      ['device/backVideo/list', { accessToken: t, deviceSerial: c.cam, channelNo: c.ch || 1,
-        startTime: String(ts(now - 86400000)), endTime: String(ts(now)), pageStart: 0, pageSize: 5 }],
+      ['live/address/get', { accessToken: t, source: (c.cam || '') + ':' + (c.ch || 1),
+        protocol: 'hls', quality: 1, expireTime: 600 }],
     ];
     for (const [p, b] of probes) {
       try { const d = await post(p, b); log(p + ' ✅ ' + JSON.stringify(d).slice(0, 160)); }
@@ -284,8 +430,12 @@ async function diagnose() {
 
 (function init() {
   const c = cfg();
-  if (c.appKey && c.cam) { refreshLive(); loadRec(); timer = setInterval(loadRec, 60000); }
-  else { $('recCard').innerHTML = '<div class="empty">首次使用：点「设置」填 AppKey</div>'; }
+  if (c.appKey) {
+    refreshLive(); loadRec();
+    timer = setInterval(loadRec, 60000);
+  } else {
+    $('recCard').innerHTML = '<div class="empty">首次使用：点下方「设置与诊断」填 AppKey</div>';
+  }
 })();
 </script>
 </body>
